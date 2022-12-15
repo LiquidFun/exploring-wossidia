@@ -1,8 +1,9 @@
 # import pandas as pd
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
-import folium
 import json
+
+import folium
 import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
@@ -122,12 +123,13 @@ def make_graph(node_path, edge_path):
                         if i3 != i1:
                             # g.nodes[i1]["info"] += f"  {i3}:{g.nodes[i3]['label']}"
                             if g.nodes[i3]['label'] == "keyword":
-                                g.nodes[i1]["info"] += f":{g.nodes[i3]['name']}\n"
+                                # g.nodes[i1]["info"] += f":{g.nodes[i3]['name']}\n"
                                 if "keywords" not in g.nodes[i1]:
                                     g.nodes[i1]["keywords"] = set()
-                                kw = g.nodes[i3]['name'].strip().lower().replace(" ", "_")
-                                if kw not in "hexe witch witches hexen varia":
+                                kw = g.nodes[i3]['name'].strip().lower().replace(" ", "_").replace('"', '')
+                                if kw not in "hexe witch witches hexen orte varia" and kw not in g.nodes[i1]["keywords"]:
                                     g.nodes[i1]["keywords"].add(kw)
+                                    g.nodes[i1]["info"] += f"[{kw}] "
                     # print("Edge", id1, id2)
     return g
 
@@ -156,6 +158,7 @@ def cluster_graph():
     print(Counter(labels))
     plot_on_map(g)
 
+
 def cluster_graph_as_table():
     g = make_graph(f"ISEBEL-Datasets/{dataset}-nodes.csv", f"ISEBEL-Datasets/{dataset}-edges.csv")
     keywords = set()
@@ -164,11 +167,37 @@ def cluster_graph_as_table():
             keywords |= set(g.nodes[i]["keywords"])
     # print(list(zip(keywords, range(100000))))
     keywords = dict(zip(keywords, range(100000)))
-    x = np.zeros((len(g.nodes), len(keywords)))
+    j = len(keywords)
+    x = np.zeros((len(g.nodes), j + 2))
     for i, node in enumerate(g.nodes):
         if "keywords" in g.nodes[node]:
             for keyword in g.nodes[node]["keywords"]:
                 x[i, keywords[keyword]] = 1
+        try:
+            if "latitude" in g.nodes[node]:
+                lat = float(g.nodes[node]['latitude'])
+                lon = float(g.nodes[node]['longitude'])
+                x[i, j] = lat
+                x[i, j+1] = lon
+            elif "lat" in g.nodes[node]:
+                lat = float(g.nodes[node]['lat'])
+                lon = float(g.nodes[node]['long'])
+                x[i, j] = lat
+                x[i, j+1] = lon
+        except ValueError:
+            pass
+    assert len(x[:, j:].min(axis=0)) == 2
+    # print(x[x[:, j] != 0, j])
+    x[x[:, j] == 0, j] = x[x[:, j] != 0, j].min()
+    x[x[:, j+1] == 0, j+1] = x[x[:, j+1] != 0, j+1].min()
+    print(x[:, j:].min(axis=0))
+    x[:, j:] -= x[:, j:].min(axis=0)
+    print(x[:, j:].max(axis=0))
+    x[:, j:] /= x[:, j:].max(axis=0)
+    x[:, j:] *= 4
+    # x *= 1000
+    print(x.max(axis=0))
+
     kmeans = KMeans(n_clusters=len(colors), random_state=0).fit(x)
     labels = kmeans.labels_  # get the cluster labels of the nodes.
     for label, node in zip(labels, g.nodes):
@@ -176,10 +205,30 @@ def cluster_graph_as_table():
     print(labels)
     print(Counter(labels))
     plot_on_map(g)
+    return g
+
+
+def plot_cluster_kw_counts(graph):
+    totals = defaultdict(int)
+    counts = defaultdict(lambda: defaultdict(int))
+    for n in graph.nodes:
+        node = graph.nodes[n]
+        for kw in node.get("keywords", []):
+            counts[node["cluster"]][kw] += 1
+            totals[kw] += 1
+    lat = 54.5
+    lon = 11.4
+    for cluster, kwcounts in counts.items():
+        lon += .1
+        counts = sorted([(v, k) for k, v in kwcounts.items()], reverse=True)[:20]
+        name = ' \n'.join([f"[{k}/{totals[v]}:{v}]" for k, v in counts])
+        icon = folium.Icon(color=colors[cluster])
+        folium.Marker([lat, lon], popup=name, icon=icon).add_to(mv)
 
 
 # make_node2vec()
-cluster_graph_as_table()
+graph = cluster_graph_as_table()
+plot_cluster_kw_counts(graph)
 
 # all_places()
 #for path in Path("ISEBEL-Datasets").glob("*.csv"):
