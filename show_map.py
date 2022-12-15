@@ -2,12 +2,16 @@
 from collections import Counter, defaultdict
 from pathlib import Path
 import json
+import random
 
 import folium
 import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.cluster import KMeans
+
+from scipy.spatial.distance import cdist
+from scipy.optimize import linear_sum_assignment
 
 mv = folium.Map(location=[54, 12])
 
@@ -53,6 +57,8 @@ def plot_on_map(graph):
                 else:
                     lat = float(graph.nodes[node]['lat'])
                     lon = float(graph.nodes[node]['long'])
+                lat += (random.random() - 0.5) * 0.001
+                lon += (random.random() - 0.5) * 0.001
                 name = graph.nodes[node]['name'] + "\n\n" + graph.nodes[node].get("info", "")
                 # print(graph.nodes[node]['cluster'])
                 icon = folium.Icon(color=colors[graph.nodes[node]['cluster']])
@@ -60,6 +66,8 @@ def plot_on_map(graph):
                 folium.Marker([lat, lon], popup=name, icon=icon).add_to(mv)
             except ValueError:
                 pass
+
+skip = "hexe witch witches hexen orte varia weerwolf weerwolven varulv werewolf werwolf wolf wolven hond avond heks forhekse kjælling kjærn hekseri hare"
 
 def make_graph(node_path, edge_path):
     g = nx.Graph()
@@ -85,8 +93,8 @@ def make_graph(node_path, edge_path):
                     long = float(properties.get('long', properties.get('longitude', 0)))
                 except ValueError:
                     pass
-                if not (54.500261 > lat > 53.027714 and  10.863210 < long < 14.627471):
-                    continue
+                #if not (54.500261 > lat > 53.027714 and  10.863210 < long < 14.627471):
+                #    continue
 
             try:
                 int(id)
@@ -127,13 +135,13 @@ def make_graph(node_path, edge_path):
                                 if "keywords" not in g.nodes[i1]:
                                     g.nodes[i1]["keywords"] = set()
                                 kw = g.nodes[i3]['name'].strip().lower().replace(" ", "_").replace('"', '')
-                                if kw not in "hexe witch witches hexen orte varia" and kw not in g.nodes[i1]["keywords"]:
+                                if kw not in skip and kw not in g.nodes[i1]["keywords"]:
                                     g.nodes[i1]["keywords"].add(kw)
                                     g.nodes[i1]["info"] += f"[{kw}] "
                     # print("Edge", id1, id2)
     return g
 
-dataset = "witches"
+dataset = "witches-dk"
 
 def make_node2vec():
     g = make_graph(f"ISEBEL-Datasets/{dataset}-nodes.csv", f"ISEBEL-Datasets/{dataset}-edges.csv")
@@ -194,11 +202,18 @@ def cluster_graph_as_table():
     x[:, j:] -= x[:, j:].min(axis=0)
     print(x[:, j:].max(axis=0))
     x[:, j:] /= x[:, j:].max(axis=0)
-    x[:, j:] *= 4
+    x[:, j:] *= 5
     # x *= 1000
     print(x.max(axis=0))
 
     kmeans = KMeans(n_clusters=len(colors), random_state=0).fit(x)
+
+    # cluster_size = 100
+    # centers = kmeans.cluster_centers_
+    # centers = centers.reshape(-1, 1, x.shape[-1]).repeat(cluster_size, 1).reshape(-1, x.shape[-1])
+    # distance_matrix = cdist(x, centers)
+    # labels = clusters = linear_sum_assignment(distance_matrix)[1]//cluster_size
+
     labels = kmeans.labels_  # get the cluster labels of the nodes.
     for label, node in zip(labels, g.nodes):
         g.nodes[node]['cluster'] = label
