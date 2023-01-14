@@ -3851,9 +3851,7 @@ id,label,properties
 4182,place,lat,55.67283345,long,9.438583161,name,Mejsling ved Vejle
 4993,place,lat,55.44131074,long,10.01463184,name,Fjelsted
 2871,place,lat,56.45666669,long,8.868457724,name,Sevel
-31,place,lat,"54.08878
-                ",long,"12.14028
-                ",name,Rostock
+31,place,lat,54.08878,long,12.14028,name,Rostock
 26538,place,lat,54.02212,long,12.54334,name,Kowalz
 4237,place,lat,56.19891774,long,9.967266634,name,Herskind
 1723,place,lat,57.45082532,long,10.50362009,name,Flade
@@ -3871,9 +3869,7 @@ id,label,properties
 16244,place,lat,52.8463259,long,6.756837,name,Schoonoord
 24382,place,lat,51.9851034,long,5.89872960000002,name,Arnhem
 13540,place,lat,53.0046927,long,5.96085,name,Gersloot
-15,place,lat,"54.14933
-                ",long,"12.26279
-                ",name,Volkenshagen
+15,place,lat,"54.14933",long,"12.26279",name,Volkenshagen
 4689,place,lat,55.79863714,long,9.938002407,name,Stovrup
 24155,place,lat,51.9085296,long,5.0509421,name,Leerbroek
 6050,place,lat,55.80248958,long,11.4397201,name,Veddinge
@@ -4480,9 +4476,7 @@ id,label,properties
 3639,place,lat,57.11528803,long,8.603895037,name,Hansted
 11419,place,lat,53.4393987,long,5.639648,name,Hollum
 22813,place,lat,51.4792547,long,5.657009600000038,name,Helmond
-80,place,lat,"53.23014
-                ",long,"11.42032
-                ",name,Eldena
+80,place,lat,"53.23014",long,"11.42032",name,Eldena
 4061,place,lat,55.48575526,long,10.254233158,name,Ørritslev Fyen
 884,place,lat,55.47592324,long,9.142558547,name,Vejen
 10116,place,lat,51.7085797,long,5.2972230999999965,name,Orthen
