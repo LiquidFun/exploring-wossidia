@@ -1,5 +1,6 @@
 # import pandas as pd
 from collections import Counter, defaultdict
+from functools import cache
 from pathlib import Path
 import json
 import random
@@ -16,7 +17,8 @@ from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
 from sklearn.decomposition import PCA
 
-mv = folium.Map(location=[54, 12])
+# mv = folium.Map(location=[54, 12])
+mv = None
 
 colors = {
     'red' : "#cb3b28",
@@ -50,7 +52,7 @@ skip = "hexe witch witches hexen orte varia weerwolf weerwolven varulv werewolf 
        "when where wann wo"
 
 USE_PCA = True
-COORD_MULTIPLIER = 1
+# COORD_MULTIPLIER = 1
 NUM_CLUSTERS = 17
 
 # def all_places():
@@ -86,12 +88,8 @@ def plot_on_map(graph):
         if graph.nodes[node]['label'] == "place":
             # print(graph.nodes[node])
             try:
-                if "latitude" in graph.nodes[node]:
-                    lat = float(graph.nodes[node]['latitude'])
-                    lon = float(graph.nodes[node]['longitude'])
-                else:
-                    lat = float(graph.nodes[node]['lat'])
-                    lon = float(graph.nodes[node]['long'])
+                lat = float(graph.nodes[node]['lat'])
+                lon = float(graph.nodes[node]['long'])
                 lat += (random.random() - 0.5) * 0.001
                 lon += (random.random() - 0.5) * 0.001
                 name = graph.nodes[node]['name'] + "\n\n" + graph.nodes[node].get("info", "")
@@ -102,6 +100,14 @@ def plot_on_map(graph):
             except ValueError:
                 pass
 
+def filter_graph_by_coordinates(graph, lat_from, lat_to, lon_from, lon_to):
+    return nx.subgraph(graph, [
+        n for n in graph.nodes if
+            graph.nodes[n]["label"] != "place" or
+            lat_from <= float(graph.nodes[n]['lat']) <= lat_to and
+            lon_from <= float(graph.nodes[n]['long']) <= lon_to
+    ])
+@cache
 def make_graph(node_path, edge_path):
     g = nx.Graph()
 
@@ -123,13 +129,20 @@ def make_graph(node_path, edge_path):
             #if label == "keyword" and properties["name"] not in common_keywords:
             #    continue
             if label == "place":
+                if "latitude" in properties:
+                    properties["lat"] = properties['latitude']
+                    properties["long"] = properties['longitude']
+                    del properties['latitude']
+                    del properties['longitude']
+                if properties['lat'] in [None, 0, "0", "0.0", ""]:
+                    print("invalid lat", properties['name'])
+
                 try:
-                    lat = float(properties.get('lat', properties.get('latitude', 0)))
-                    long = float(properties.get('long', properties.get('longitude', 0)))
+                    properties["lat"] = float(properties['lat'].replace(",", ".").replace('"', ""))
+                    properties["long"] = float(properties['long'].replace(",", ".").replace('"', ""))
                 except ValueError:
                     pass
-                if not (54.500261 > lat > 53.027714 and  10.863210 < long < 14.627471):
-                    continue
+                    # print("bad coordinate", properties["lat"])
 
             try:
                 int(id)
@@ -176,6 +189,10 @@ def make_graph(node_path, edge_path):
                                     g.nodes[i1]["keywords"].add(kw)
                                     g.nodes[i1]["info"] += f"[{kw}] "
                     # print("Edge", id1, id2)
+
+    # remove place nodes where lat or long is missing
+    nodes_to_remove = [n for n in g.nodes if g.nodes[n]["label"] == "place" and g.nodes[n]["lat"] in [None, 0, "0", "0.0", ""]]
+    g.remove_nodes_from(nodes_to_remove)
     return g
 
 dataset = "witches"
@@ -209,44 +226,34 @@ dataset = "witches"
     # fixed_colors = colors.copy()
     # fixed_colors[fixed_colors.index("darkpurple")] = "#5a0d6d"
 
-def cluster_graph_as_table():
-    g = make_graph(f"ISEBEL-Datasets/{dataset}-nodes.csv", f"ISEBEL-Datasets/{dataset}-edges.csv")
+def cluster_graph_as_table(graph, n_clusters: int = 10, coord_multiplier=1, apply_pca=False, plot_pca=False):
     keyword_counts = Counter()
     keywords = set()
-    for i in g.nodes:
-        if "keywords" in g.nodes[i]:
-            keywords |= set(g.nodes[i]["keywords"])
-            keyword_counts.update(g.nodes[i]["keywords"])
+    for i in graph.nodes:
+        if "keywords" in graph.nodes[i]:
+            keywords |= set(graph.nodes[i]["keywords"])
+            keyword_counts.update(graph.nodes[i]["keywords"])
     for kw, count in keyword_counts.items():
         if count <= 10:
             keywords.remove(kw)
     # print(list(zip(keywords, range(100000))))
     keywords = dict(zip(keywords, range(100000)))
     j = len(keywords)
-    len_places = len([n for n in g.nodes if g.nodes[n]["label"] == "place"])
+    len_places = len([n for n in graph.nodes if graph.nodes[n]["label"] == "place"])
     x = np.zeros((len_places, j + 2))
     index = 0
     place_nodes = []
-    for i, node in enumerate(g.nodes):
-        if g.nodes[node]["label"] == "place":
-            place_nodes.append(g.nodes[node])
-            if "keywords" in g.nodes[node]:
-                for keyword in g.nodes[node]["keywords"]:
+    for i, node in enumerate(graph.nodes):
+        if graph.nodes[node]["label"] == "place":
+            place_nodes.append(graph.nodes[node])
+            if "keywords" in graph.nodes[node]:
+                for keyword in graph.nodes[node]["keywords"]:
                     if keyword in keywords:
                         x[index, keywords[keyword]] = 1
-            try:
-                if "latitude" in g.nodes[node]:
-                    lat = float(g.nodes[node]['latitude'])
-                    lon = float(g.nodes[node]['longitude'])
-                    x[index, j] = lat
-                    x[index, j+1] = lon
-                elif "lat" in g.nodes[node]:
-                    lat = float(g.nodes[node]['lat'])
-                    lon = float(g.nodes[node]['long'])
-                    x[index, j] = lat
-                    x[index, j+1] = lon
-            except ValueError:
-                pass
+            lat = float(graph.nodes[node]['lat'])
+            lon = float(graph.nodes[node]['long'])
+            x[index, j] = lat
+            x[index, j+1] = lon
             index += 1
     assert len(x[:, j:].min(axis=0)) == 2
     # print(x[x[:, j] != 0, j])
@@ -256,24 +263,23 @@ def cluster_graph_as_table():
     x[:, j:] -= x[:, j:].min(axis=0)
     print(x[:, j:].max(axis=0))
     x[:, j:] /= x[:, j:].max(axis=0)
-    x[:, j:] *= COORD_MULTIPLIER
+    x[:, j:] *= coord_multiplier
     # x *= 1000
     # Do pca on the array x
-    kmeans = KMeans(n_clusters=NUM_CLUSTERS, random_state=0).fit(x)
-    if USE_PCA:
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(x)
+    if apply_pca:
         pca = PCA(n_components=2)
         pca.fit(x)
         x = pca.transform(x)
-    cols = [list(colors.values())[cluster] for cluster in kmeans.labels_]
-    plt.scatter(x[:, 0], x[:, 1], s=80, c=cols)
-    if USE_PCA:
+    # PLOTTING HERE cols = [list(colors.values())[cluster] for cluster in kmeans.labels_]
+    # PLOTTING HERE plt.scatter(x[:, 0], x[:, 1], s=80, c=cols)
+    if apply_pca and plot_pca:
         index_to_keyword = dict(zip(keywords.values(), keywords.keys()))
         # Get centers of kmeans clusters
         centers = kmeans.cluster_centers_
         centers = pca.transform(centers)
         # Get the inverse transform of the centers
         inverses = pca.inverse_transform(centers)[:, :-2]
-        print(len(inverses))
         for index, center in enumerate(centers):
             indices_of_best_keywords = np.argpartition(-inverses[index], kth=5)[:5]
             indices_of_best_keywords = indices_of_best_keywords[np.argsort(inverses[index][indices_of_best_keywords])[::-1]]
@@ -303,10 +309,9 @@ def cluster_graph_as_table():
     labels = kmeans.labels_  # get the cluster labels of the nodes.
     for label, node in zip(labels, place_nodes):
         node['cluster'] = label
-    print(labels)
-    print(Counter(labels))
-    plot_on_map(g)
-    return g
+    #print(labels)
+    #print(Counter(labels))
+    return graph
 
 
 def plot_cluster_kw_counts(graph):
@@ -332,14 +337,21 @@ def plot_cluster_kw_counts(graph):
         folium.Marker([lat, lon], popup=name, icon=icon).add_to(mv)
 
 
-# make_node2vec()
-graph = cluster_graph_as_table()
-plot_cluster_kw_counts(graph)
+def main():
+    # make_node2vec()
+    graph = make_graph(f"ISEBEL-Datasets/{dataset}-nodes.csv", f"ISEBEL-Datasets/{dataset}-edges.csv")
+    cluster_graph_as_table(graph)
+    plot_on_map(graph)
+    plot_cluster_kw_counts(graph)
 
-# all_places()
-#for path in Path("ISEBEL-Datasets").glob("*.csv"):
-    #places_from_dataset(path)
+    # all_places()
+    #for path in Path("ISEBEL-Datasets").glob("*.csv"):
+        #places_from_dataset(path)
 
 
-mv.save("index.html")
-print("Done")
+    mv.save("index.html")
+    print("Done")
+
+
+if __name__ == '__main__':
+    main()
