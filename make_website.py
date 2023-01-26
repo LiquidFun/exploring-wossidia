@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 from functools import cache
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -9,7 +10,19 @@ import plotly.express as px
 
 from show_map import cluster_graph_as_table, make_graph, filter_graph_by_coordinates
 
+curr_path = Path(__file__).parent
+is_debug = (curr_path / "DEBUG").exists()
 
+ALLOWED_DATASETS = ("witches", "witches-dk", "werewolf")
+ALLOWED_KMEANS = list(range(2, 21))
+ALLOWED_AREA_FILTERS = ("Germany", "Netherlands", "Denmark")
+ALLOWED_TOGGLES = ("Use PCA",)
+ALLOWED_SIZE_MULTIPLIERS = [i*0.1 for i in range(-20, 21)]
+ALLOWED_COORD_MULTIPLIERS = list(range(0, 11))
+ALLOWED_TABS = ("map-tab", "data-tab", "pca-tab")
+
+def minmax(input_list):
+    return min(input_list), max(input_list)
 
 def get_app():
     external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -18,42 +31,32 @@ def get_app():
     size_marks = {i: f"{2**i}" for i in (-2, -1, 0, 1, 2)}
     app.layout = html.Div([
         html.Div(children=[
-            html.H1('Wossidia'),
+            html.H1(f'Wossidia {"(DEBUG)" if is_debug else ""}'),
             html.Label('Dataset'),
-            dcc.Dropdown(['witches', 'witches-dk', 'werewolf'], 'witches', id="dataset-name"),
+            dcc.Dropdown(ALLOWED_DATASETS, 'witches', id="dataset-name"),
 
-            # html.Br(),
             html.Hr(style={"margin": "0.5em"}),
             html.Label('k-Means clusters'),
-            dcc.Slider(2, 20, value=10, id='kmeans-slider', step=1),
+            dcc.Slider(*minmax(ALLOWED_KMEANS), value=10, id='kmeans-slider', step=1),
 
-            # html.Br(),
             html.Hr(style={"margin": "0.5em"}),
             html.Label('Size multiplier'),
-            dcc.Slider(-2, 2, value=0, id='size-slider', step=0.1, marks=size_marks),
+            dcc.Slider(*minmax(ALLOWED_SIZE_MULTIPLIERS), value=0, id='size-slider', step=0.1, marks=size_marks),
 
             html.Hr(style={"margin": "0.5em"}),
-            # html.Br(),
             html.Label('Coordinate importance'),
-            dcc.Slider(0, 10, value=4, id='coordinate-slider', step=1),
+            dcc.Slider(*minmax(ALLOWED_COORD_MULTIPLIERS), value=4, id='coordinate-slider', step=1),
 
             html.Hr(style={"margin": "0.5em"}),
-            html.Div([
-                html.H6('Area filter'),
-                dcc.Checklist(["Germany", "Netherlands", "Denmark"], ["Germany"], id="area-filters", inline=True),
-            ], style={"flex": 1}),
+            html.H6('Area filter'),
+            dcc.Checklist(ALLOWED_AREA_FILTERS, ["Germany"], id="area-filters", inline=True),
 
             html.Hr(style={"margin": "0.5em"}),
-            html.Div([
-                html.H5('Additional toggles'),
-                dcc.Checklist(["Use PCA", "Show major keywords"], [], id="toggles", inline=True),
-            ], style={"flex": 1}),
+            html.H5('Additional toggles'),
+            dcc.Checklist(ALLOWED_TOGGLES, [], id="toggles", inline=True),
 
             html.Hr(style={"margin": "0.5em"}),
-            # html.H5('Cluster table'),
             html.Div(id='cluster-table', style={"flex": 1}),
-            # dcc.Graph(id="cluster-table", style={"flex": 1, "height": "100%", "width": "100%"}),
-
 
         ], style={'width': "20%", 'flex': 1, "padding": 10}),
 
@@ -83,8 +86,8 @@ def get_app():
 
         ]), style={'padding': 10, 'flex': 4})
 
-
     ], style={'display': 'flex', 'flex-direction': 'row'})
+
     return app
 
 app = get_app()
@@ -95,6 +98,8 @@ area_filters = {
     "Denmark": [54.500000, 57.500000, 7.000000, 12.500000],
 }
 
+assert set(area_filters.keys()) == set(ALLOWED_AREA_FILTERS)
+
 def filter_graph_by_areas(graph, areas: tuple[str]):
     if areas is None:
         areas = area_filters.keys()
@@ -102,7 +107,6 @@ def filter_graph_by_areas(graph, areas: tuple[str]):
     to_lat = max(area_filters[area][1] for area in areas)
     from_lon = min(area_filters[area][2] for area in areas)
     to_lon = max(area_filters[area][3] for area in areas)
-    # graph = graph.query(f"lat > {from_lat} and lat < {to_lat} and lon > {from_lon} and lon < {to_lon}")
     graph = filter_graph_by_coordinates(graph, from_lat, to_lat, from_lon, to_lon)
     return graph
 
@@ -120,7 +124,6 @@ def get_places_as_table(dataset: str, kmeans_clusters: int, filters: tuple[str],
     places["long"] = places["long"].astype(float)
 
     # Add column with size of point
-
     # Set float values to set() in column "keywords"
     places["keywords"] = places["keywords"].apply(lambda x: Counter() if isinstance(x, float) else x)
     places["size"] = 10 + np.log(places["keywords"].apply(len) + 1) * 4
@@ -136,9 +139,7 @@ def get_places_as_table(dataset: str, kmeans_clusters: int, filters: tuple[str],
         for keywords_set in places[places["cluster"] == cluster]["keywords"]:
             keywords.update(keywords_set)
         cluster_name = f"({cluster_sizes[cluster]})_{keywords.most_common(1)[0][0]}_{cluster}"
-        # replace new cluster names
         places.loc[places["cluster"] == cluster, "cluster_name"] = cluster_name
-        # places["cluster_name"][places["cluster"] == cluster] = cluster_name
 
 
     # Add column with number of keywords
@@ -160,7 +161,11 @@ def get_places_as_table(dataset: str, kmeans_clusters: int, filters: tuple[str],
 
 @cache
 @app.callback(
-    Output("map", "figure"),
+    [
+        Output("map", "figure"),
+        Output("data-table", "children"),
+        Output("cluster-table", "children"),
+    ],
     [
         Input("dataset-name", "value"),
         Input("kmeans-slider", "value"),
@@ -170,31 +175,40 @@ def get_places_as_table(dataset: str, kmeans_clusters: int, filters: tuple[str],
         Input("coordinate-slider", "value"),
         Input("tabs", "value"),
     ],
-    [State("map", "figure")],
+    [
+        State("map", "figure"),
+        State("data-table", "children"),
+    ],
 )
-def update_figure(dataset, kmeans_clusters, area_filters, toggles, size_multiplier, coord_mult, curr_tab, figure):
-    if curr_tab != "map-tab":
-        return figure
+def on_parameter_change(dataset, kmeans_clusters, area_filters, toggles, size_multiplier, coord_mult, curr_tab,
+                        map_state, table_state):
+
+    # Validate user inputs
+    assert dataset in ALLOWED_DATASETS, \
+        f"Dataset {dataset} not in {ALLOWED_DATASETS}"
+    assert kmeans_clusters in ALLOWED_KMEANS, \
+        f"Kmeans {kmeans_clusters} not in {ALLOWED_KMEANS}"
+    assert set(area_filters) - set(ALLOWED_AREA_FILTERS) == set(), \
+        f"Areas {area_filters} not in {ALLOWED_AREA_FILTERS}"
+    assert set(toggles) - set(ALLOWED_TOGGLES) == set(), \
+        f"Toggles {toggles} not in {ALLOWED_TOGGLES}"
+    assert size_multiplier in ALLOWED_SIZE_MULTIPLIERS, \
+        f"Size multiplier {size_multiplier} not in {ALLOWED_SIZE_MULTIPLIERS}"
+    assert coord_mult in ALLOWED_COORD_MULTIPLIERS, \
+        f"Coordinate multiplier {coord_mult} not in {ALLOWED_COORD_MULTIPLIERS}"
+    assert curr_tab in ALLOWED_TABS, f"Tab {curr_tab} not in {ALLOWED_TABS}"
+
     use_pca = "Use PCA" in toggles if toggles is not None else False
     places = get_places_as_table(dataset, kmeans_clusters, tuple(area_filters), coord_mult, use_pca)
 
+    return [
+        updated_map(places, size_multiplier, map_state) if curr_tab == "map-tab" else map_state,
+        updated_data_table(places) if curr_tab == "data-tab" else table_state,
+        updated_cluster_table(places),
+    ]
 
 
-    # fig = go.Figure(go.Scattermapbox(
-    #     lat=places["lat"],
-    #     lon=places["long"],
-    #     mode="markers+text",
-    #     marker=go.scattermapbox.Marker(
-    #         size=30,
-    #         color="red",
-    #         # colorscale=px.colors.qualitative.G10,
-    #         # opacity=0.7,
-    #     ),
-    #     text=places["cluster_name"],
-    #     textposition="bottom center",
-    #     textfont={"family": "sans serif", "size": 10},
-    #     # hoverinfo="text",
-    # ))
+def updated_map(places, size_multiplier, figure):
 
     fig = px.scatter_mapbox(
         places,
@@ -210,55 +224,16 @@ def update_figure(dataset, kmeans_clusters, area_filters, toggles, size_multipli
         mapbox_style="open-street-map",
         opacity=0.95,
         size_max=20 * 2**size_multiplier,
-        # text="name",
     )
-    # fig.data[0].update(mode="markers+text+lines")
     fig.update_layout(legend=dict(x=0.01, y=0.99, bgcolor="rgba(255, 255, 255, 0.75)",
                                   bordercolor="Black", borderwidth=1, title_text="Cluster"))
-    fig.update_layout(mapbox_style="open-street-map")
+    # fig.update_layout(mapbox_style="open-street-map")
     fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     fig.update_traces(textposition="middle center")
 
-
-    # Get centers of clusters
-    # for cluster in set(places["cluster_name"]):
-    #     cluster_places = places[places["cluster_name"] == cluster]
-    #     cluster_center = cluster_places[["lat", "long"]].mean()
-    #     print(cluster_center)
-
-    #     keywords = Counter()
-    #     for keywords_set in places[places["cluster_name"] == cluster]["keywords"]:
-    #         keywords.update(keywords_set)
-    #     most_common = keywords.most_common(1)[0]
-    #     fig.add_trace(go.Scattergeo(
-    #         lon=[cluster_center["long"]],
-    #         lat=[cluster_center["lat"]],
-    #         mode="markers+text",
-    #         name=cluster,
-    #         text=[f"{most_common[0]} ({most_common[1]})"] * 2,
-    #         textfont={"size": 100, "color": "black"},
-    #     ))
-
     return fig
 
-@cache
-@app.callback(
-    Output("data-table", "children"),
-    [
-        Input("dataset-name", "value"),
-        Input("kmeans-slider", "value"),
-        Input("area-filters", "value"),
-        Input("toggles", "value"),
-        Input("coordinate-slider", "value"),
-        Input("tabs", "value"),
-    ],
-    [State("data-table", "children")],
-)
-def update_data_table(dataset, kmeans_clusters, area_filters, toggles, coord_mult, curr_tab, children):
-    if curr_tab != "data-tab":
-        return children
-    use_pca = "Use PCA" in toggles if toggles is not None else False
-    places = get_places_as_table(dataset, kmeans_clusters, tuple(area_filters), coord_mult, use_pca)
+def updated_data_table(places):
     places = places.sort_values("num_keywords", ascending=False)
     places = places[["name", "lat", "long", "cluster", "num_keywords", "info"]]
     return dash_table.DataTable(
@@ -266,33 +241,9 @@ def update_data_table(dataset, kmeans_clusters, area_filters, toggles, coord_mul
         [{"name": c, "id": c} for c in places.columns],
         style_cell={"textAlign": "left"},
         style_table={"overflowX": "scroll"},
-        # striped=True, bordered=True, hover=True, id="data-table"
     )
 
-@cache
-@app.callback(
-    Output("cluster-table", "children"),
-    [
-        Input("dataset-name", "value"),
-        Input("kmeans-slider", "value"),
-        Input("area-filters", "value"),
-        Input("toggles", "value"),
-        Input("coordinate-slider", "value"),
-    ],
-)
-def update_cluster_table(dataset, kmeans_clusters, area_filters, toggles, coord_mult):
-    use_pca = "Use PCA" in toggles if toggles is not None else False
-    places = get_places_as_table(dataset, kmeans_clusters, tuple(area_filters), coord_mult, use_pca)
-    # clusters = places.groupby("cluster_name").agg({"name": "count", "keywords": "sum"})
-    # cluster_counts = places["cluster"].value_counts()
-    # return str(set(reversed(places["cluster_name"])))
-    # dash_table.DataTable(
-    #     places.to_dict("records"),
-    #     [{"name": c, "id": c} for c in ["cluster_name"]],
-    #     style_cell={"textAlign": "left"},
-    #     style_table={"overflowX": "scroll"},
-    #     # striped=True, bordered=True, hover=True, id="data-table"
-    # )
+def updated_cluster_table(places):
     counts = Counter()
     keywords = {}
 
@@ -302,29 +253,21 @@ def update_cluster_table(dataset, kmeans_clusters, area_filters, toggles, coord_
         keywords[row["cluster_name"]].update(row["keywords"])
         counts[row["cluster_name"]] += 1
 
-
     rows = [html.Tr([
-        # html.Th("Cluster"),
         html.Th("Count"),
         html.Th("Keywords"),
     ])]
     for (k, occ), c, color in zip(keywords.items(), counts.values(), px.colors.qualitative.G10):
         fmt = ', '.join([f"{k} ({v})" for k, v in occ.most_common(5)])
         rows.append(html.Tr([
-            # html.Td(k),
             html.Td(c),
             html.Td(fmt, style={"font-size": "12px"})
         ], style={"background-color": color}))
 
     return html.Table(rows)
 
-    # return go.Figure(go.Table(
-    #     header=dict(values=["Cluster", "Count", "Keywords"]),
-    #     cells=dict(values=[list(keywords.keys()), list(counts.values()), list(keywords.values())]),
-    # ))
-
 def main():
-    app.run_server(debug=True)  # Turn off reloader if inside Jupyter
+    app.run_server(debug=is_debug)
 
 
 if __name__ == '__main__':
