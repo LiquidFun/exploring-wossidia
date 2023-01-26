@@ -1,3 +1,6 @@
 index.html
-./ISEBEL-Datasets/forpresentation/*
+ISEBEL-Datasets/forpresentation
 .idea
+am_place.json
+html
+__pycache__

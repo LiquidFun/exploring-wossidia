@@ -5,6 +5,7 @@ requests
 folium
 matplotlib
 scipy
-node2vec
 sklearn
 scikit-learn
+plotly
+dash

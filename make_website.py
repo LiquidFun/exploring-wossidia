@@ -7,7 +7,6 @@ import pandas as pd
 
 import dash
 from dash import html, dcc, Input, Output, State, dash_table
-import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
 
