@@ -49,7 +49,7 @@ assert list(colors)[0] == "red"
 
 skip = "hexe witch witches hexen orte varia weerwolf weerwolven varulv werewolf " \
        "werwolf wolf wolven hond avond heks forhekse kjælling kjærn hekseri hare" \
-       "when where wann wo"
+       "when where wann wo hekserij toverij"
 
 USE_PCA = True
 # COORD_MULTIPLIER = 1
@@ -164,31 +164,29 @@ def make_graph(node_path, edge_path):
             if id1 in common or id2 in common or True:
                 if id1 in g.nodes and id2 in g.nodes:
                     g.add_edge(id1, id2, label=label)
-                    for i1, i2 in [(id1, id2), (id2, id1)]:
-                        if g.nodes[i1]["label"] != "place":
-                            if "info" not in g.nodes[i1]:
-                                g.nodes[i1]["info"] = ""
-                            g.nodes[i1]["info"] += f"{i2}:{g.nodes[i2]['label']}\n"
+                    # for i1, i2 in [(id1, id2), (id2, id1)]:
+                    #     if g.nodes[i1]["label"] != "place":
+                    #         if "info" not in g.nodes[i1]:
+                    #             g.nodes[i1]["info"] = ""
+                    #         g.nodes[i1]["info"] += f"{i2}:{g.nodes[i2]['label']}\n"
         for e1, e2 in g.edges:
             for i1, i2 in [(e1, e2), (e2, e1)]:
                 if g.nodes[i1]["label"] == "place":
-                    if "info" not in g.nodes[i1]:
-                        g.nodes[i1]["info"] = ""
-                    # g.nodes[i1]["info"] += f"{i2}:{g.nodes[i2]['label']}\n"
+                    #if "info" not in g.nodes[i1]:
+                    #    g.nodes[i1]["info"] = ""
                     for i3 in g.neighbors(i2):
                         if i3 != i1:
-                            # g.nodes[i1]["info"] += f"  {i3}:{g.nodes[i3]['label']}"
                             if g.nodes[i3]['label'] == "keyword":
-                                # g.nodes[i1]["info"] += f":{g.nodes[i3]['name']}\n"
                                 if "keywords" not in g.nodes[i1]:
-                                    g.nodes[i1]["keywords"] = set()
+                                    g.nodes[i1]["keywords"] = Counter()
                                 kw = g.nodes[i3]['name'].strip().lower().replace(" ", "_").replace('"', '')
-                                #if kw not in common_keywords:
-                                #    continue
-                                if kw not in skip and kw not in g.nodes[i1]["keywords"]:
-                                    g.nodes[i1]["keywords"].add(kw)
-                                    g.nodes[i1]["info"] += f"[{kw}] "
-                    # print("Edge", id1, id2)
+                                if kw not in skip:
+                                    g.nodes[i1]["keywords"][kw] += 1
+                                    # g.nodes[i1]["info"] += f"[{kw}] "
+
+    for n, data in g.nodes.data():
+        if data["label"] == "place" and "keywords" in data:
+            data["info"] = ', '.join([f"{k}:{count}" for k, count in data["keywords"].most_common(5)])
 
     # remove place nodes where lat or long is missing
     nodes_to_remove = [n for n in g.nodes if g.nodes[n]["label"] == "place" and g.nodes[n]["lat"] in [None, 0, "0", "0.0", ""]]
@@ -196,35 +194,6 @@ def make_graph(node_path, edge_path):
     return g
 
 dataset = "witches"
-
-
-#     g = make_graph(f"ISEBEL-Datasets/{dataset}-nodes.csv", f"ISEBEL-Datasets/{dataset}-edges.csv")
-#     #nx.draw(g, node_size=1)
-#     #plt.show()
-#     from node2vec import Node2Vec
-#     node2vec = Node2Vec(g, dimensions=3, walk_length=10, num_walks=10, workers=6)
-#     model = node2vec.fit(window=10, min_count=1, batch_words=4)
-#     model.wv.save_word2vec_format("node2vec.txt")
-
-# def cluster_node2vec_graph():
-#     g = make_graph(f"ISEBEL-Datasets/{dataset}-nodes.csv", f"ISEBEL-Datasets/{dataset}-edges.csv")
-#     x = np.loadtxt("node2vec.txt", skiprows=1)
-#     x = x[x[:, 0].argsort()]
-#     x = x[0:x.shape[0], 1:x.shape[1]]
-
-    # kmeans = KMeans(n_clusters=len(colors), random_state=0).fit(x)
-    # labels = kmeans.labels_  # get the cluster labels of the nodes.
-    # for label, node in zip(labels, g.nodes):
-    #     g.nodes[node]['cluster'] = label
-    # print(labels)
-    # print(Counter(labels))
-    # plot_on_map(g)
-
-
-# def plot_array_as_scatter_plot(x, clusters):
-    # x is an array with 2 columns of x and y coordinates
-    # fixed_colors = colors.copy()
-    # fixed_colors[fixed_colors.index("darkpurple")] = "#5a0d6d"
 
 def cluster_graph_as_table(graph, n_clusters: int = 10, coord_multiplier=1, apply_pca=False, plot_pca=False):
     keyword_counts = Counter()
@@ -266,11 +235,11 @@ def cluster_graph_as_table(graph, n_clusters: int = 10, coord_multiplier=1, appl
     x[:, j:] *= coord_multiplier
     # x *= 1000
     # Do pca on the array x
-    kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(x)
     if apply_pca:
         pca = PCA(n_components=2)
         pca.fit(x)
         x = pca.transform(x)
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(x)
     # PLOTTING HERE cols = [list(colors.values())[cluster] for cluster in kmeans.labels_]
     # PLOTTING HERE plt.scatter(x[:, 0], x[:, 1], s=80, c=cols)
     if apply_pca and plot_pca:
