@@ -5,7 +5,7 @@ requests
 folium
 matplotlib
 scipy
-sklearn
 scikit-learn
 plotly
 dash
+cmasher

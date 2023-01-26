@@ -3,12 +3,9 @@ from functools import cache
 
 import numpy as np
 import pandas as pd
-# us_cities = pd.read_csv("https://raw.githubusercontent.com/plotly/datasets/master/us-cities-top-1k.csv")
-
 import dash
 from dash import html, dcc, Input, Output, State, dash_table
 import plotly.express as px
-import plotly.graph_objects as go
 
 from show_map import cluster_graph_as_table, make_graph, filter_graph_by_coordinates
 
@@ -154,8 +151,6 @@ def get_places_as_table(dataset: str, kmeans_clusters: int, filters: tuple[str],
         cluster_counts[row["cluster"]].update(row["keywords"])
     for i, row in places.iterrows():
         places.at[i, "cluster_info"] = ', '.join([f"{k}:{c}" for k, c in cluster_counts[row["cluster"]].most_common(5)])
-        print(row["cluster_info"])
-    print(cluster_counts)
 
     # Sort by number of keywords
     places.sort_values("cluster", inplace=True)
@@ -178,12 +173,10 @@ def get_places_as_table(dataset: str, kmeans_clusters: int, filters: tuple[str],
     [State("map", "figure")],
 )
 def update_figure(dataset, kmeans_clusters, area_filters, toggles, size_multiplier, coord_mult, curr_tab, figure):
-    print(curr_tab)
     if curr_tab != "map-tab":
         return figure
     use_pca = "Use PCA" in toggles if toggles is not None else False
     places = get_places_as_table(dataset, kmeans_clusters, tuple(area_filters), coord_mult, use_pca)
-    print(len(places))
 
 
 
