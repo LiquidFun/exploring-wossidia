@@ -26,7 +26,7 @@ def make_graph(dataset: str):
     g = nx.Graph()
 
     keyword_counter = Counter()
-    with open(node_path) as file:
+    with open(node_path, encoding="utf-8") as file:
         for line in file.readlines()[1:]:
             id, label, *properties = line.strip().split(',')
             properties = {key: value for key, value in zip(properties[::2], properties[1::2])}
@@ -36,7 +36,7 @@ def make_graph(dataset: str):
     # common_keywords = [a[0] for a in keyword_counter.most_common(100)]
     # common_keywords = [k for k, count in keyword_counter.items() if count >= 2]
 
-    with open(node_path) as file:
+    with open(node_path, encoding="utf-8") as file:
         for line in file.readlines()[1:]:
             id, label, *properties = line.strip().split(',')
             properties = {key: value for key, value in zip(properties[::2], properties[1::2])}
@@ -65,7 +65,7 @@ def make_graph(dataset: str):
             except ValueError:
                 pass
 
-    with open(edge_path) as file:
+    with open(edge_path, encoding="utf-8") as file:
         lines = file.readlines()[1:]
         counter = Counter()
         for line in lines:
@@ -73,7 +73,7 @@ def make_graph(dataset: str):
             counter[id1] += 1
             counter[id2] += 1
     common = [c[0] for c in counter.most_common(1000)]
-    with open(edge_path) as file:
+    with open(edge_path, encoding="utf-8") as file:
         for line in file.readlines()[1:]:
             id1, id2, label, *_ = line.strip().split(',')
             if id1 in common or id2 in common or True:
