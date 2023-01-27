@@ -3,7 +3,7 @@ import random
 
 import folium
 
-from show_map import apply_clusters_to_graph, make_graph
+from parse_graph import apply_clusters_to_graph, make_graph
 
 colors = {
     'red' : "#cb3b28",

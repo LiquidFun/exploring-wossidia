@@ -8,7 +8,7 @@ import dash
 from dash import html, dcc, Input, Output, State, dash_table
 import plotly.express as px
 
-from show_map import apply_clusters_to_graph, make_graph, filter_graph_by_coordinates
+from parse_graph import apply_clusters_to_graph, make_graph, filter_graph_by_coordinates
 
 curr_path = Path(__file__).parent
 is_debug = (curr_path / "DEBUG").exists()
