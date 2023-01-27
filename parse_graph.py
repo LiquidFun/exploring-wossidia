@@ -49,7 +49,8 @@ def make_graph(dataset: str):
                     del properties['latitude']
                     del properties['longitude']
                 if properties['lat'] in [None, 0, "0", "0.0", ""]:
-                    print("invalid lat", properties['name'])
+                    pass
+                    # print("invalid lat", properties['name'])
 
                 try:
                     properties["lat"] = float(properties['lat'].replace(",", ".").replace('"', ""))
@@ -133,9 +134,9 @@ def graph_as_table(graph, n_clusters: int = 10, coord_multiplier=1, apply_pca=Fa
     # print(x[x[:, j] != 0, j])
     x[x[:, j] == 0, j] = x[x[:, j] != 0, j].min()
     x[x[:, j+1] == 0, j+1] = x[x[:, j+1] != 0, j+1].min()
-    print(x[:, j:].min(axis=0))
+    # print(x[:, j:].min(axis=0))
     x[:, j:] -= x[:, j:].min(axis=0)
-    print(x[:, j:].max(axis=0))
+    # print(x[:, j:].max(axis=0))
     x[:, j:] /= x[:, j:].max(axis=0)
     x[:, j:] *= coord_multiplier
 

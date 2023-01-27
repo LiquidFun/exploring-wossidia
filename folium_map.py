@@ -61,8 +61,6 @@ def plot_cluster_kw_counts(graph):
         for kw in node.get("keywords", []):
             counts[node["cluster"]][kw] += 1
             totals[kw] += 1
-    print(counts)
-    print(totals)
     places = [n for n in graph.nodes if graph.nodes[n]["label"] == "place"]
     lat = 54.5
     lon = 11.4
