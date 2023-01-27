@@ -8,4 +8,3 @@ scipy
 scikit-learn
 plotly
 dash
-cmasher

@@ -8,7 +8,7 @@ import dash
 from dash import html, dcc, Input, Output, State, dash_table
 import plotly.express as px
 
-from show_map import cluster_graph_as_table, make_graph, filter_graph_by_coordinates
+from show_map import apply_clusters_to_graph, make_graph, filter_graph_by_coordinates
 
 curr_path = Path(__file__).parent
 is_debug = (curr_path / "DEBUG").exists()
@@ -114,7 +114,7 @@ def filter_graph_by_areas(graph, areas: tuple[str]):
 def get_places_as_table(dataset: str, kmeans_clusters: int, filters: tuple[str], coord_multiplier: int, pca: bool):
     graph = make_graph(f"ISEBEL-Datasets/{dataset}-nodes.csv", f"ISEBEL-Datasets/{dataset}-edges.csv")
     graph = filter_graph_by_areas(graph, filters)
-    cluster_graph_as_table(graph, kmeans_clusters, coord_multiplier, apply_pca=pca)
+    apply_clusters_to_graph(graph, kmeans_clusters, coord_multiplier, apply_pca=pca)
 
     places = pd.DataFrame([data for _, data in graph.nodes.data() if data["label"] == "place"])
 
