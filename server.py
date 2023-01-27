@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 from collections import Counter, defaultdict
 from functools import cache
 from pathlib import Path
@@ -26,7 +28,12 @@ def minmax(input_list):
 
 def get_app():
     external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-    app = dash.Dash("Wossidia", external_stylesheets=external_stylesheets)
+    app = dash.Dash(
+        "Wossidia Clusters",
+        external_stylesheets=external_stylesheets,
+        assets_folder=str(curr_path / "assets"),
+        title="Wossidia Clusters",
+    )
 
     size_marks = {i: f"{2**i}" for i in (-2, -1, 0, 1, 2)}
     app.layout = html.Div([
@@ -112,7 +119,7 @@ def filter_graph_by_areas(graph, areas: tuple[str]):
 
 @cache
 def get_places_as_table(dataset: str, kmeans_clusters: int, filters: tuple[str], coord_multiplier: int, pca: bool):
-    graph = make_graph(f"ISEBEL-Datasets/{dataset}-nodes.csv", f"ISEBEL-Datasets/{dataset}-edges.csv")
+    graph = make_graph(dataset)
     graph = filter_graph_by_areas(graph, filters)
     apply_clusters_to_graph(graph, kmeans_clusters, coord_multiplier, apply_pca=pca)
 
@@ -267,7 +274,7 @@ def updated_cluster_table(places):
     return html.Table(rows)
 
 def main():
-    app.run_server(debug=is_debug)
+    app.run(debug=is_debug)
 
 
 if __name__ == '__main__':

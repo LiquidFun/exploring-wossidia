@@ -1,5 +1,6 @@
 from collections import Counter
 from functools import cache
+from pathlib import Path
 
 import networkx as nx
 import numpy as np
@@ -18,7 +19,10 @@ def filter_graph_by_coordinates(graph, lat_from, lat_to, lon_from, lon_to):
             lon_from <= float(graph.nodes[n]['long']) <= lon_to
     ])
 @cache
-def make_graph(node_path, edge_path):
+def make_graph(dataset: str):
+    isebel_path = Path(__file__).parent / "ISEBEL-Datasets"
+    node_path = isebel_path / f"{dataset}-nodes.csv"
+    edge_path = isebel_path / f"{dataset}-edges.csv"
     g = nx.Graph()
 
     keyword_counter = Counter()
@@ -95,7 +99,6 @@ def make_graph(node_path, edge_path):
     g.remove_nodes_from(nodes_to_remove)
     return g
 
-dataset = "witches"
 
 def graph_as_table(graph, n_clusters: int = 10, coord_multiplier=1, apply_pca=False):
     keyword_counts = Counter()
@@ -198,7 +201,8 @@ def apply_pca_coordinates_to_graph(graph):
 
 
 def main():
-    graph = make_graph(f"ISEBEL-Datasets/{dataset}-nodes.csv", f"ISEBEL-Datasets/{dataset}-edges.csv")
+    dataset = "witches"
+    graph = make_graph(dataset)
     apply_clusters_to_graph(graph)
     print(f"{len(graph.nodes)=}")
     print(f"{len(graph.edges)=}")

@@ -77,7 +77,7 @@ def plot_cluster_kw_counts(graph):
 
 
 def main():
-    graph = make_graph(f"ISEBEL-Datasets/{dataset}-nodes.csv", f"ISEBEL-Datasets/{dataset}-edges.csv")
+    graph = make_graph(dataset)
     apply_clusters_to_graph(graph)
     plot_on_map(graph)
     plot_cluster_kw_counts(graph)
