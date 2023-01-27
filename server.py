@@ -15,6 +15,8 @@ from parse_graph import apply_clusters_to_graph, make_graph, filter_graph_by_coo
 curr_path = Path(__file__).parent
 is_debug = (curr_path / "DEBUG").exists()
 
+URL = "/wossidia/"
+
 ALLOWED_DATASETS = ("witches", "witches-dk", "werewolf")
 ALLOWED_KMEANS = list(range(2, 21))
 ALLOWED_AREA_FILTERS = ("Germany", "Netherlands", "Denmark")
@@ -33,6 +35,7 @@ def get_app():
         external_stylesheets=external_stylesheets,
         assets_folder=str(curr_path / "assets"),
         title="Wossidia Clusters",
+        requests_pathname_prefix=URL,
     )
 
     size_marks = {i: f"{2**i}" for i in (-2, -1, 0, 1, 2)}
